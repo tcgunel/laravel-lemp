@@ -3,14 +3,18 @@ up:
 build:
 	docker compose build --no-cache --force-rm
 laravel-install:
-	docker compose exec app composer create-project --prefer-dist laravel/laravel .
+	git clone https://gitlab.com/ctrlf5/gets-app.git ./backend
 create-project:
-	mkdir -p backend
+	mkdir backend
 	@make build
 	@make up
 	@make laravel-install
+	docker compose exec app composer install
+	docker compose exec app cp .env.example .env
 	docker compose exec app php artisan key:generate
 	docker compose exec app php artisan storage:link
+	docker compose exec app php artisan glide:key-generate
+	docker compose exec app php artisan jwt:secret
 	docker compose exec app chmod -R 777 storage bootstrap/cache
 	@make fresh
 install-recommend-packages:
@@ -28,6 +32,8 @@ init:
 	docker compose exec app cp .env.example .env
 	docker compose exec app php artisan key:generate
 	docker compose exec app php artisan storage:link
+	docker compose exec app php artisan glide:key-generate
+	docker compose exec app php artisan jwt:secret
 	docker compose exec app chmod -R 777 storage bootstrap/cache
 	@make fresh
 remake:

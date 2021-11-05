@@ -3,3 +3,6 @@
 
 # Docker Compose
 .env
+
+# laravel project files
+.backend

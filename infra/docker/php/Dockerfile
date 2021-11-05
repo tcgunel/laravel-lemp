@@ -1,4 +1,4 @@
-FROM php:8.0-fpm-bullseye
+FROM php:7.3-fpm
 LABEL maintainer="ucan-lab <yes@u-can.pro>"
 SHELL ["/bin/bash", "-oeux", "pipefail", "-c"]
 
@@ -15,13 +15,22 @@ ENV TZ=UTC \
 COPY --from=composer:2.1 /usr/bin/composer /usr/bin/composer
 
 RUN apt-get update && \
-  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales && \
+  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev && \
   apt-get clean && \
+
   rm -rf /var/lib/apt/lists/* && \
   locale-gen en_US.UTF-8 && \
   localedef -f UTF-8 -i en_US en_US.UTF-8 && \
   mkdir /var/run/php-fpm && \
-  docker-php-ext-install intl pdo_mysql zip bcmath && \
+
+  docker-php-ext-install intl pdo_mysql zip bcmath exif soap && \
+  pecl install xdebug && \
+  docker-php-ext-enable xdebug && \
+  docker-php-ext-configure gd && \
+  docker-php-ext-install -j$(nproc) gd && \
+  pecl install apfd && \
+  docker-php-ext-enable apfd && \
+
   composer config -g process-timeout 3600 && \
   composer config -g repos.packagist composer https://packagist.org
 
