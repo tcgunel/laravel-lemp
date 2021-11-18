@@ -17,4 +17,10 @@ COPY --from=node /opt /opt
 # nginx config file
 COPY ./infra/docker/nginx/*.conf /etc/nginx/conf.d/
 
+COPY ./infra/docker/nginx/ssl/certs/*.pem /etc/ssl/certs/
+COPY ./infra/docker/nginx/ssl/certs/*.crt /etc/ssl/certs/
+COPY ./infra/docker/nginx/ssl/private/*.key /etc/ssl/private/
+
+COPY ./infra/docker/nginx/ssl/snippets/*.conf /etc/nginx/snippets/
+
 WORKDIR /work/backend

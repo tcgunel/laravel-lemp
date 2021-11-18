@@ -37,4 +37,6 @@ RUN apt-get update && \
 COPY ./infra/docker/php/php-fpm.d/zzz-www.conf /usr/local/etc/php-fpm.d/zzz-www.conf
 COPY ./infra/docker/php/php.ini /usr/local/etc/php/php.ini
 
+RUN usermod --non-unique --uid 1000 www-data
+
 WORKDIR /work/backend
