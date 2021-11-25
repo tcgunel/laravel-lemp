@@ -15,7 +15,7 @@ ENV TZ=UTC \
 COPY --from=composer:2.1 /usr/bin/composer /usr/bin/composer
 
 RUN apt-get update && \
-  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev && \
+  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev build-essential g++ python2 curl && \
   apt-get clean && \
 
   rm -rf /var/lib/apt/lists/* && \
@@ -34,8 +34,20 @@ RUN apt-get update && \
   composer config -g process-timeout 3600 && \
   composer config -g repos.packagist composer https://packagist.org
 
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash && \
+    export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")" && \
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+    nvm install 14
+
 COPY ./infra/docker/php/php-fpm.d/zzz-www.conf /usr/local/etc/php-fpm.d/zzz-www.conf
 COPY ./infra/docker/php/php.ini /usr/local/etc/php/php.ini
+
+# node command
+COPY --from=node /usr/local/bin /usr/local/bin
+# npm command
+COPY --from=node /usr/local/lib /usr/local/lib
+# yarn command
+COPY --from=node /opt /opt
 
 RUN usermod --non-unique --uid 1000 www-data
 
