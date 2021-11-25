@@ -1,4 +1,4 @@
-FROM php:8.0.12-fpm
+FROM php:7.3-fpm
 LABEL maintainer="ucan-lab <yes@u-can.pro>"
 SHELL ["/bin/bash", "-oeux", "pipefail", "-c"]
 
