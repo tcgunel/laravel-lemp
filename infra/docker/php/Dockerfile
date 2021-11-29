@@ -1,4 +1,4 @@
-FROM php:7.3-fpm
+FROM php:8.0.12-fpm
 LABEL maintainer="ucan-lab <yes@u-can.pro>"
 SHELL ["/bin/bash", "-oeux", "pipefail", "-c"]
 
@@ -26,7 +26,7 @@ RUN apt-get update && \
   docker-php-ext-install intl pdo_mysql zip bcmath exif soap && \
   pecl install xdebug && \
   docker-php-ext-enable xdebug && \
-  docker-php-ext-configure gd && \
+  docker-php-ext-configure gd --with-freetype --with-jpeg && \
   docker-php-ext-install -j$(nproc) gd && \
   pecl install apfd && \
   docker-php-ext-enable apfd && \

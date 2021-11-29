@@ -1,6 +1,7 @@
 version: "3.9"
 volumes:
   php-fpm-socket:
+  test-db-store:
   db-store:
   psysh-store:
 services:
@@ -26,7 +27,7 @@ services:
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_DATABASE=${DB_NAME:-laravel_local}
+      - DB_DATABASE=${DB_NAME:-laravel}
       - DB_USERNAME=${DB_USER:-phper}
       - DB_PASSWORD=${DB_PASS:-secret}
 
@@ -36,7 +37,7 @@ services:
       dockerfile: ./infra/docker/nginx/Dockerfile
     ports:
       - target: 443
-        published: ${WEB_PORT:-443}
+        published: ${HTTPS_WEB_PORT:-443}
         protocol: tcp
         mode: host
       - target: 80
@@ -69,7 +70,28 @@ services:
         volume:
           nocopy: true
     environment:
-      - MYSQL_DATABASE=${DB_NAME:-laravel_local}
+      - MYSQL_DATABASE=${DB_NAME:-laravel}
       - MYSQL_USER=${DB_USER:-phper}
       - MYSQL_PASSWORD=${DB_PASS:-secret}
       - MYSQL_ROOT_PASSWORD=${DB_PASS:-secret}
+
+  db-test:
+    build:
+      context: .
+      dockerfile: ./infra/docker/mysql/Dockerfile
+    ports:
+      - target: 3306
+        published: ${TEST_DB_PORT:-3307}
+        protocol: tcp
+        mode: host
+    volumes:
+      - type: volume
+        source: test-db-store
+        target: /var/lib/mysql
+        volume:
+          nocopy: true
+    environment:
+      - MYSQL_DATABASE=${TEST_DB_NAME:-laravel}
+      - MYSQL_USER=${TEST_DB_USER:-phper}
+      - MYSQL_PASSWORD=${TEST_DB_PASS:-secret}
+      - MYSQL_ROOT_PASSWORD=${TEST_DB_PASS:-secret}
