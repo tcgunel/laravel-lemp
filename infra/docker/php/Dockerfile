@@ -1,6 +1,9 @@
-FROM php:8.0.12-fpm
+FROM php:8.1.2-fpm
 LABEL maintainer="ucan-lab <yes@u-can.pro>"
 SHELL ["/bin/bash", "-oeux", "pipefail", "-c"]
+
+ARG USER_NAME
+ARG USER_ID
 
 # timezone environment
 ENV TZ=UTC \
@@ -10,7 +13,9 @@ ENV TZ=UTC \
   LC_ALL=en_US.UTF-8 \
   # composer environment
   COMPOSER_ALLOW_SUPERUSER=1 \
-  COMPOSER_HOME=/composer
+  COMPOSER_HOME=/composer \
+  USER_NAME=${USER_NAME?usernamenotset} \
+  USER_ID=${USER_ID?useridnotset}
 
 COPY --from=composer:2.1 /usr/bin/composer /usr/bin/composer
 
@@ -34,6 +39,8 @@ RUN apt-get update && \
   composer config -g process-timeout 3600 && \
   composer config -g repos.packagist composer https://packagist.org
 
+RUN pecl install -o -f redis && rm -rf /tmp/pear && docker-php-ext-enable redis
+
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash && \
     export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")" && \
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
@@ -51,4 +58,6 @@ COPY --from=node /opt /opt
 
 RUN usermod --non-unique --uid 1000 www-data
 
-WORKDIR /work/backend
+RUN useradd -rm --non-unique -d /home/${USER_NAME} -s /bin/bash -g root -G sudo -u ${USER_ID} ${USER_NAME}
+
+WORKDIR /home/${USER_NAME}
