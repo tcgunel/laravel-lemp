@@ -3,6 +3,10 @@ volumes:
   php-fpm-socket:
   db-store:
   psysh-store:
+networks:
+  my-proxy-net:
+    external:
+      name: custom_network
 services:
   app:
     build:
@@ -22,12 +26,14 @@ services:
         target: /root/.config/psysh
         volume:
           nocopy: true
+    networks:
+      - my-proxy-net
     environment:
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
       - DB_DATABASE=${DB_NAME:-laravel_local}
-      - DB_USERNAME=${DB_USER:-phper}
+      - DB_USERNAME=${DB_USER:-root}
       - DB_PASSWORD=${DB_PASS:-secret}
 
   web:
@@ -36,7 +42,7 @@ services:
       dockerfile: ./infra/docker/nginx/Dockerfile
     ports:
       - target: 443
-        published: ${WEB_PORT:-443}
+        published: ${HTTPS_PORT:-443}
         protocol: tcp
         mode: host
       - target: 80
@@ -52,6 +58,8 @@ services:
       - type: bind
         source: ./backend
         target: /work/backend
+    networks:
+      - my-proxy-net
 
   db:
     build:
@@ -73,3 +81,5 @@ services:
       - MYSQL_USER=${DB_USER:-phper}
       - MYSQL_PASSWORD=${DB_PASS:-secret}
       - MYSQL_ROOT_PASSWORD=${DB_PASS:-secret}
+    networks:
+      - my-proxy-net
