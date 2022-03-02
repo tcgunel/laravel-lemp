@@ -5,27 +5,20 @@ volumes:
   db-store:
   psysh-store:
   cache-redis-store:
+networks:
+  my-proxy-net:
+    name: custom_network
 services:
   app:
     build:
       context: .
       dockerfile: ./infra/docker/php/Dockerfile
       args:
-        - DB_DATABASE=${DB_NAME:-laravel}
-        - DB_USERNAME=${DB_USERNAME:-user}
-        - DB_PASSWORD=${DB_PASSWORD:-secret}
-        - DB_PORT=${DB_PORT:-3306}
-        - USER_NAME=${USER_NAME:-ubuntu}
-        - USER_ID=${USER_ID:-1000}
+        - USER_NAME=${USER_NAME}
+        - USER_ID=${USER_ID}
     environment:
-      - DB_CONNECTION=mysql
-      - DB_HOST=db
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_DATABASE=${DB_NAME:-laravel}
-      - DB_USERNAME=${DB_USERNAME:-user}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - USER_NAME=${USER_NAME:-ubuntu}
-      - USER_ID=${USER_ID:-1000}
+      - USER_NAME=${USER_NAME}
+      - USER_ID=${USER_ID}
     volumes:
       - type: volume
         source: php-fpm-socket
@@ -34,12 +27,14 @@ services:
           nocopy: true
       - type: bind
         source: ./backend
-        target: /home/${USER_NAME:-ubuntu}
+        target: /home/${USER_NAME}
       - type: volume
         source: psysh-store
         target: /root/.config/psysh
         volume:
           nocopy: true
+    networks:
+      - my-proxy-net
     depends_on:
       - web
       - db
@@ -53,18 +48,15 @@ services:
       args:
         - HTTPS_WEB_PORT=${HTTPS_WEB_PORT}
         - WEB_PORT=${WEB_PORT}
-        - USER_NAME=${USER_NAME:-ubuntu}
-        - USER_ID=${USER_ID:-1000}
-    environment:
-      - USER_NAME=${USER_NAME:-ubuntu}
-      - USER_ID=${USER_ID:-1000}
+        - USER_NAME=${USER_NAME}
+        - USER_ID=${USER_ID}
     ports:
       - target: 443
-        published: ${HTTPS_WEB_PORT:-443}
+        published: ${HTTPS_WEB_PORT}
         protocol: tcp
         mode: host
       - target: 80
-        published: ${WEB_PORT:-80}
+        published: ${WEB_PORT}
         protocol: tcp
         mode: host
     volumes:
@@ -75,20 +67,26 @@ services:
           nocopy: true
       - type: bind
         source: ./backend
-        target: /home/${USER_NAME:-ubuntu}
+        target: /home/${USER_NAME}
       - type: bind
         source: ./infra/docker/nginx/templates
         target: /etc/nginx/templates/
+    environment:
+      - USER_NAME=${USER_NAME}
+      - USER_ID=${USER_ID}
+    networks:
+      - my-proxy-net
 
   db:
     build:
       context: .
       dockerfile: ./infra/docker/mysql/Dockerfile
       args:
-        - DB_PORT=${DB_PORT:-3306}
+        - EXPOSED_DB_PORT=${EXPOSED_DB_PORT}
+        - DB_PORT=${DB_PORT}
     ports:
-      - target: 3306
-        published: ${DB_PORT:-3306}
+      - target: ${DB_PORT}
+        published: ${EXPOSED_DB_PORT}
         protocol: tcp
         mode: host
     volumes:
@@ -98,20 +96,26 @@ services:
         volume:
           nocopy: true
     environment:
-      - MYSQL_DATABASE=${DB_NAME:-laravel}
-      - MYSQL_USER=${DB_USERNAME:-user}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-secret}
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-secret}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+    networks:
+      - my-proxy-net
 
   db-test:
     build:
       context: .
       dockerfile: ./infra/docker/mysql/Dockerfile
       args:
-        - DB_PORT=${TEST_DB_PORT:-3307}
+        - TEST_DB_PORT=${TEST_DB_PORT}
+        - TEST_DB_DATABASE=${TEST_DB_NAME}
+        - TEST_DB_USERNAME=${TEST_DB_USERNAME}
+        - TEST_DB_PASSWORD=${TEST_DB_PASSWORD}
+        - MYSQL_ROOT_PASSWORD=${TEST_DB_PASSWORD}
     ports:
-      - target: 3306
-        published: ${TEST_DB_PORT:-3307}
+      - target: ${TEST_DB_PORT}
+        published: ${EXPOSED_TEST_DB_PORT}
         protocol: tcp
         mode: host
     volumes:
@@ -121,22 +125,25 @@ services:
         volume:
           nocopy: true
     environment:
-      - MYSQL_DATABASE=${TEST_DB_NAME:-laravel}
-      - MYSQL_USER=${TEST_DB_USERNAME:-user}
-      - MYSQL_PASSWORD=${TEST_DB_PASSWORD:-secret}
-      - MYSQL_ROOT_PASSWORD=${TEST_DB_PASSWORD:-secret}
+      - MYSQL_DATABASE=${TEST_DB_NAME}
+      - MYSQL_USER=${TEST_DB_USERNAME}
+      - MYSQL_PASSWORD=${TEST_DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${TEST_DB_PASSWORD}
+    networks:
+      - my-proxy-net
 
   cache:
     build:
       context: .
       dockerfile: ./infra/docker/cache/Dockerfile
       args:
-        - REDIS_PASS=${REDIS_PASSWORD:-secret}
-        - REDIS_PORT=${REDIS_PORT:-6379}
-    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD:-secret}
+        - REDIS_PASS=${REDIS_PASSWORD}
+        - REDIS_PORT=${REDIS_PORT}
+        - EXPOSED_REDIS_PORT=${EXPOSED_REDIS_PORT}
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
     ports:
-      - target: 6379
-        published: ${REDIS_PORT:-6379}
+      - target: ${REDIS_PORT}
+        published: ${EXPOSED_REDIS_PORT}
         protocol: tcp
         mode: host
     volumes:
@@ -146,5 +153,7 @@ services:
         volume:
           nocopy: true
     environment:
-      - REDIS_PORT=${REDIS_PORT:-6379}
-      - REDIS_PASS=${REDIS_PASSWORD:-secret}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASS=${REDIS_PASSWORD}
+    networks:
+      - my-proxy-net

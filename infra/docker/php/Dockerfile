@@ -20,7 +20,7 @@ ENV TZ=UTC \
 COPY --from=composer:2.1 /usr/bin/composer /usr/bin/composer
 
 RUN apt-get update && \
-  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev build-essential g++ python2 curl && \
+  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev build-essential g++ python2 curl libnotify-bin --fix-missing && \
   apt-get clean && \
 
   rm -rf /var/lib/apt/lists/* && \
