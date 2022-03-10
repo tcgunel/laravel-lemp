@@ -1,13 +1,38 @@
 version: "3.9"
+
 volumes:
   php-fpm-socket:
   test-db-store:
   db-store:
   psysh-store:
   cache-redis-store:
+  data1-1:
+  data1-2:
+  data2-1:
+  data2-2:
+
 networks:
   my-proxy-net:
     name: custom_network
+
+# Settings and configurations that are common for all containers
+x-minio-common: &minio-common
+  image: quay.io/minio/minio:RELEASE.2022-03-08T22-28-51Z
+  command: server --console-address ":9001" http://minio{1...2}/data{1...2}
+  networks:
+    - my-proxy-net
+  expose:
+    - "9000"
+    - "9001"
+    # environment:
+    # MINIO_ROOT_USER: minioadmin
+    # MINIO_ROOT_PASSWORD: minioadmin
+  healthcheck:
+    test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+    interval: 30s
+    timeout: 20s
+    retries: 3
+
 services:
   app:
     build:
@@ -59,6 +84,14 @@ services:
         published: ${WEB_PORT}
         protocol: tcp
         mode: host
+      - target: 9000 # minio api
+        published: 9100
+        protocol: tcp
+        mode: host
+      - target: 9001 # minio console
+        published: 9101
+        protocol: tcp
+        mode: host
     volumes:
       - type: volume
         source: php-fpm-socket
@@ -76,6 +109,9 @@ services:
       - USER_ID=${USER_ID}
     networks:
       - my-proxy-net
+    depends_on:
+      - minio1
+      - minio2
 
   db:
     build:
@@ -157,3 +193,17 @@ services:
       - REDIS_PASS=${REDIS_PASSWORD}
     networks:
       - my-proxy-net
+
+  minio1:
+    <<: *minio-common
+    hostname: minio1
+    volumes:
+      - data1-1:/data1
+      - data1-2:/data2
+
+  minio2:
+    <<: *minio-common
+    hostname: minio2
+    volumes:
+      - data2-1:/data1
+      - data2-2:/data2

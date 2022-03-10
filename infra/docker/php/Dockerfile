@@ -1,4 +1,4 @@
-FROM php:8.1.2-fpm
+FROM php:8.1.3-fpm
 LABEL maintainer="ucan-lab <yes@u-can.pro>"
 SHELL ["/bin/bash", "-oeux", "pipefail", "-c"]
 
@@ -20,7 +20,7 @@ ENV TZ=UTC \
 COPY --from=composer:2.1 /usr/bin/composer /usr/bin/composer
 
 RUN apt-get update && \
-  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev build-essential g++ python2 curl libnotify-bin --fix-missing && \
+  apt-get -y install git libicu-dev libonig-dev libzip-dev unzip locales libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev build-essential g++ python2 curl libnotify-bin libxslt-dev --fix-missing && \
   apt-get clean && \
 
   rm -rf /var/lib/apt/lists/* && \
@@ -28,7 +28,7 @@ RUN apt-get update && \
   localedef -f UTF-8 -i en_US en_US.UTF-8 && \
   mkdir /var/run/php-fpm && \
 
-  docker-php-ext-install intl pdo_mysql zip bcmath exif soap && \
+  docker-php-ext-install intl pdo_mysql zip bcmath exif soap xsl && \
   pecl install xdebug && \
   docker-php-ext-enable xdebug && \
   docker-php-ext-configure gd --with-freetype --with-jpeg && \
@@ -48,13 +48,6 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | b
 
 COPY ./infra/docker/php/php-fpm.d/zzz-www.conf /usr/local/etc/php-fpm.d/zzz-www.conf
 COPY ./infra/docker/php/php.ini /usr/local/etc/php/php.ini
-
-# node command
-COPY --from=node /usr/local/bin /usr/local/bin
-# npm command
-COPY --from=node /usr/local/lib /usr/local/lib
-# yarn command
-COPY --from=node /opt /opt
 
 RUN usermod --non-unique --uid 1000 www-data
 
