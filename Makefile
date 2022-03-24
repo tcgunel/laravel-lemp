@@ -34,6 +34,7 @@ init:
 	docker compose exec app php artisan storage:link
 	docker compose exec app php artisan glide:key-generate
 	docker compose exec app php artisan jwt:secret
+	docker compose exec app php artisan l5-swagger:generate
 	docker compose exec app chmod -R 777 storage bootstrap/cache
 	@make fresh
 remake:

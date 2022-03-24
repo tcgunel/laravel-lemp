@@ -1,17 +1,49 @@
 version: "3.9"
+
 volumes:
   php-fpm-socket:
+  test-db-store:
   db-store:
   psysh-store:
+  cache-redis-store:
+  data1-1:
+  data1-2:
+  data2-1:
+  data2-2:
+
 networks:
   my-proxy-net:
-    external:
-      name: custom_network
+    name: custom_network
+
+# Settings and configurations that are common for all containers
+x-minio-common: &minio-common
+  image: quay.io/minio/minio:RELEASE.2022-03-08T22-28-51Z
+  command: server --console-address ":9001" http://minio{1...2}/data{1...2}
+  networks:
+    - my-proxy-net
+  expose:
+    - "9000"
+    - "9001"
+    # environment:
+    # MINIO_ROOT_USER: minioadmin
+    # MINIO_ROOT_PASSWORD: minioadmin
+  healthcheck:
+    test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+    interval: 30s
+    timeout: 20s
+    retries: 3
+
 services:
   app:
     build:
       context: .
       dockerfile: ./infra/docker/php/Dockerfile
+      args:
+        - USER_NAME=${USER_NAME}
+        - USER_ID=${USER_ID}
+    environment:
+      - USER_NAME=${USER_NAME}
+      - USER_ID=${USER_ID}
     volumes:
       - type: volume
         source: php-fpm-socket
@@ -20,7 +52,7 @@ services:
           nocopy: true
       - type: bind
         source: ./backend
-        target: /work/backend
+        target: /home/${USER_NAME}/ks
       - type: volume
         source: psysh-store
         target: /root/.config/psysh
@@ -28,25 +60,39 @@ services:
           nocopy: true
     networks:
       - my-proxy-net
-    environment:
-      - DB_CONNECTION=mysql
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=${DB_NAME:-laravel_local}
-      - DB_USERNAME=${DB_USER:-root}
-      - DB_PASSWORD=${DB_PASS:-secret}
+    depends_on:
+      - web
+      - db
+      - db-test
+      - cache
 
   web:
     build:
       context: .
       dockerfile: ./infra/docker/nginx/Dockerfile
+      args:
+        - HTTPS_WEB_PORT=${HTTPS_WEB_PORT}
+        - WEB_PORT=${WEB_PORT}
+        - USER_NAME=${USER_NAME}
+        - USER_ID=${USER_ID}
+    container_name: ksweb
+    security_opt:
+      - no-new-privileges:true
     ports:
       - target: 443
-        published: ${HTTPS_PORT:-443}
+        published: ${HTTPS_WEB_PORT}
         protocol: tcp
         mode: host
       - target: 80
-        published: ${WEB_PORT:-80}
+        published: ${WEB_PORT}
+        protocol: tcp
+        mode: host
+      - target: 9000 # minio api
+        published: 9100
+        protocol: tcp
+        mode: host
+      - target: 9001 # minio console
+        published: 9101
         protocol: tcp
         mode: host
     volumes:
@@ -57,17 +103,30 @@ services:
           nocopy: true
       - type: bind
         source: ./backend
-        target: /work/backend
+        target: /home/${USER_NAME}/ks
+      - type: bind
+        source: ./infra/docker/nginx/templates
+        target: /etc/nginx/templates/
+    environment:
+      - USER_NAME=${USER_NAME}
+      - USER_ID=${USER_ID}
+      - NGINX_ENTRYPOINT_QUIET_LOGS=1
     networks:
       - my-proxy-net
+    depends_on:
+      - minio1
+      - minio2
 
   db:
     build:
       context: .
       dockerfile: ./infra/docker/mysql/Dockerfile
+      args:
+        - EXPOSED_DB_PORT=${EXPOSED_DB_PORT}
+        - DB_PORT=${DB_PORT}
     ports:
-      - target: 3306
-        published: ${DB_PORT:-3306}
+      - target: ${DB_PORT}
+        published: ${EXPOSED_DB_PORT}
         protocol: tcp
         mode: host
     volumes:
@@ -77,9 +136,78 @@ services:
         volume:
           nocopy: true
     environment:
-      - MYSQL_DATABASE=${DB_NAME:-laravel_local}
-      - MYSQL_USER=${DB_USER:-phper}
-      - MYSQL_PASSWORD=${DB_PASS:-secret}
-      - MYSQL_ROOT_PASSWORD=${DB_PASS:-secret}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
     networks:
       - my-proxy-net
+
+  db-test:
+    build:
+      context: .
+      dockerfile: ./infra/docker/mysql/Dockerfile
+      args:
+        - TEST_DB_PORT=${TEST_DB_PORT}
+        - TEST_DB_DATABASE=${TEST_DB_NAME}
+        - TEST_DB_USERNAME=${TEST_DB_USERNAME}
+        - TEST_DB_PASSWORD=${TEST_DB_PASSWORD}
+        - MYSQL_ROOT_PASSWORD=${TEST_DB_PASSWORD}
+    ports:
+      - target: ${TEST_DB_PORT}
+        published: ${EXPOSED_TEST_DB_PORT}
+        protocol: tcp
+        mode: host
+    volumes:
+      - type: volume
+        source: test-db-store
+        target: /var/lib/mysql
+        volume:
+          nocopy: true
+    environment:
+      - MYSQL_DATABASE=${TEST_DB_NAME}
+      - MYSQL_USER=${TEST_DB_USERNAME}
+      - MYSQL_PASSWORD=${TEST_DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${TEST_DB_PASSWORD}
+    networks:
+      - my-proxy-net
+
+  cache:
+    build:
+      context: .
+      dockerfile: ./infra/docker/cache/Dockerfile
+      args:
+        - REDIS_PASS=${REDIS_PASSWORD}
+        - REDIS_PORT=${REDIS_PORT}
+        - EXPOSED_REDIS_PORT=${EXPOSED_REDIS_PORT}
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    ports:
+      - target: ${REDIS_PORT}
+        published: ${EXPOSED_REDIS_PORT}
+        protocol: tcp
+        mode: host
+    volumes:
+      - type: volume
+        source: cache-redis-store
+        target: /data
+        volume:
+          nocopy: true
+    environment:
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASS=${REDIS_PASSWORD}
+    networks:
+      - my-proxy-net
+
+  minio1:
+    <<: *minio-common
+    hostname: minio1
+    volumes:
+      - data1-1:/data1
+      - data1-2:/data2
+
+  minio2:
+    <<: *minio-common
+    hostname: minio2
+    volumes:
+      - data2-1:/data1
+      - data2-2:/data2
