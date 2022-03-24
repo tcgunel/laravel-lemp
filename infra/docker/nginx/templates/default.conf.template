@@ -4,7 +4,7 @@ error_log /dev/stderr warn;
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    root /home/${USER_NAME}/public;
+    root /home/${USER_NAME}/ks/public;
 
     include snippets/self-signed.conf;
     include snippets/ssl-params.conf;
@@ -41,7 +41,7 @@ server {
 
 server {
     listen 80;
-    root /home/${USER_NAME}/public;
+    root /home/${USER_NAME}/ks/public;
 
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-XSS-Protection "1; mode=block";

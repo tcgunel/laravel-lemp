@@ -52,7 +52,7 @@ services:
           nocopy: true
       - type: bind
         source: ./backend
-        target: /home/${USER_NAME}
+        target: /home/${USER_NAME}/ks
       - type: volume
         source: psysh-store
         target: /root/.config/psysh
@@ -75,6 +75,9 @@ services:
         - WEB_PORT=${WEB_PORT}
         - USER_NAME=${USER_NAME}
         - USER_ID=${USER_ID}
+    container_name: ksweb
+    security_opt:
+      - no-new-privileges:true
     ports:
       - target: 443
         published: ${HTTPS_WEB_PORT}
@@ -100,13 +103,14 @@ services:
           nocopy: true
       - type: bind
         source: ./backend
-        target: /home/${USER_NAME}
+        target: /home/${USER_NAME}/ks
       - type: bind
         source: ./infra/docker/nginx/templates
         target: /etc/nginx/templates/
     environment:
       - USER_NAME=${USER_NAME}
       - USER_ID=${USER_ID}
+      - NGINX_ENTRYPOINT_QUIET_LOGS=1
     networks:
       - my-proxy-net
     depends_on:
