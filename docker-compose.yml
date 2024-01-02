@@ -10,6 +10,8 @@ volumes:
   data1-2:
   data2-1:
   data2-2:
+  typesense-data:
+    driver: local
 
 networks:
   my-proxy-net:
@@ -17,7 +19,7 @@ networks:
 
 # Settings and configurations that are common for all containers
 x-minio-common: &minio-common
-  image: quay.io/minio/minio:RELEASE.2022-03-08T22-28-51Z
+  image: quay.io/minio/minio
   command: server --console-address ":9001" http://minio{1...2}/data{1...2}
   networks:
     - my-proxy-net
@@ -135,6 +137,9 @@ services:
         target: /var/lib/mysql
         volume:
           nocopy: true
+      - ./infra/docker/mysql/my.cnf:/etc/my.cnf
+      - ./infra/docker/mysql/mysql-general.log:/var/log/mysql/mysql-general.log
+      - ./infra/docker/mysql/mysql-slow.log:/var/log/mysql/mariadb-slow.log
     environment:
       - MYSQL_DATABASE=${DB_NAME}
       - MYSQL_USER=${DB_USERNAME}
@@ -211,3 +216,26 @@ services:
     volumes:
       - data2-1:/data1
       - data2-2:/data2
+
+  typesense:
+    image: typesense/typesense:0.21.0
+    entrypoint: sh -c "/opt/typesense-server --data-dir /data --api-key=local-typesense-api-key --enable-cors"
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense-data:/data
+    networks:
+      - my-proxy-net
+
+  mongo:
+    image: mongo
+    container_name: ksmongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_DB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_DB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+    ports:
+      - 27017:27017
+    networks:
+      - my-proxy-net
