@@ -1,4 +1,4 @@
-FROM php:8.1.3-fpm
+FROM php:8.3.6-fpm
 LABEL maintainer="ucan-lab <yes@u-can.pro>"
 SHELL ["/bin/bash", "-oeux", "pipefail", "-c"]
 
@@ -19,36 +19,39 @@ ENV TZ=UTC \
 
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
+# Install dependencies
 RUN apt-get update && \
   apt-get -y install git  \
     libicu-dev libonig-dev openssl libzip-dev libcurl4-openssl-dev pkg-config libssl-dev unzip locales \
-    libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev build-essential g++ python2 curl libnotify-bin \
+    libfreetype6-dev libjpeg62-turbo-dev libpng-dev libxml2-dev build-essential g++ dh-python curl libnotify-bin \
     libxslt-dev libpq-dev --fix-missing && \
-  apt-get clean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-  pecl install mongodb && \
+RUN locale-gen en_US.UTF-8 && \
+    localedef -f UTF-8 -i en_US en_US.UTF-8 && \
+    mkdir /var/run/php-fpm
 
-  rm -rf /var/lib/apt/lists/* && \
-  locale-gen en_US.UTF-8 && \
-  localedef -f UTF-8 -i en_US en_US.UTF-8 && \
-  mkdir /var/run/php-fpm && \
+# Install PHP extensions and PECL modules
+RUN docker-php-ext-install intl pdo pdo_mysql zip bcmath exif soap xsl && \
+    docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    docker-php-ext-install -j$(nproc) gd
 
-  docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql && \
-  docker-php-ext-install intl pdo pdo_mysql pdo_pgsql pgsql zip bcmath exif soap xsl && \
-  docker-php-ext-configure gd --with-freetype --with-jpeg && \
-  docker-php-ext-install -j$(nproc) gd && \
-  pecl install apfd && \
-  docker-php-ext-enable apfd && \
+RUN pecl install apfd && \
+    docker-php-ext-enable apfd
 
-  composer config -g process-timeout 3600 && \
-  composer config -g repos.packagist composer https://packagist.org
+RUN pecl install mongodb && \
+    echo extension=mongodb.so >> /usr/local/etc/php/conf.d/mongodb.ini
 
 RUN pecl install xdebug && \
     docker-php-ext-enable xdebug
 
-RUN pecl install -o -f redis && rm -rf /tmp/pear && docker-php-ext-enable redis
+RUN pecl install -o -f redis && \
+    docker-php-ext-enable redis
 
-RUN echo extension=mongodb.so >> /usr/local/etc/php/conf.d/mongodb.ini
+# Configure composer
+RUN composer config -g process-timeout 3600 && \
+    composer config -g repos.packagist composer https://packagist.org
 
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash && \
     export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")" && \
